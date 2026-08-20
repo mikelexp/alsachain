@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Box, Text, useApp, useInput, useStdout } from 'ink';
+import React, { useEffect, useRef, useState } from 'react';
+import { Box, Text, useApp, useInput, useStdin, useStdout } from 'ink';
 import { StatusMessage } from '@inkjs/ui';
 import type { Device, PlaybackState } from './alsa.js';
 import { hasChannelAdaptation } from './alsa.js';
@@ -52,6 +52,24 @@ const SURFACE: Color = '#252a33';
 const SURFACE_DEEP: Color = '#171a21';
 const TEXT: Color = '#d7dce5';
 const MUTED: Color = '#8f98a8';
+
+function useLastRawInput() {
+  const { stdin } = useStdin();
+  const lastInput = useRef('');
+
+  useEffect(() => {
+    const captureInput = (data: Buffer) => {
+      lastInput.current = data.toString();
+    };
+    // Ink classifies DEL (the usual terminal Backspace sequence) as Delete.
+    stdin.prependListener('data', captureInput);
+    return () => {
+      stdin.removeListener('data', captureInput);
+    };
+  }, [stdin]);
+
+  return lastInput;
+}
 
 const statusColor = (state: PlaybackState['state'] | undefined, label?: string): Color =>
   label === 'Connected'
@@ -1506,9 +1524,10 @@ function NewProfile({
     ),
   );
   const [field, setField] = useState(0);
-  const [cursor, setCursor] = useState(0);
+  const [cursor, setCursor] = useState(existing?.id.length ?? 0);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const rawInput = useLastRawInput();
 
   useInput((input, key) => {
     const value = field === 0 ? id : displayName;
@@ -1516,11 +1535,12 @@ function NewProfile({
     const isTextField = field < 2;
     const isBackspace =
       key.backspace ||
+      rawInput.current === '\x7f' ||
       input === '\b' ||
       input === '\x7f' ||
       input === '\x1b[8~' ||
       input === '\x1b[127~';
-    const isDelete = key.delete || input === '\x1b[3~';
+    const isDelete = (key.delete && !isBackspace) || input === '\x1b[3~';
 
     if (key.tab) {
       const nextField = (field + (key.shift ? -1 : 1) + 4) % 4;
