@@ -56,4 +56,8 @@ describe('DSP stage model', () => {
       }).success,
     ).toBe(true);
   });
+  it('treats a legacy null crossfeed projection as absent', () => {
+    const profile = profileSchema.parse({ ...base, crossfeed: null });
+    expect(profile.crossfeed).toBeUndefined();
+  });
 });

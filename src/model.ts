@@ -58,7 +58,8 @@ export const profileSchema = z
     stages: z.array(dspStageSchema),
     // Transitional UI projections; DSP stages remain authoritative.
     eqEnabled: z.boolean().optional(),
-    crossfeed: crossfeedSchema.optional(),
+    // Older releases serialized an absent crossfeed setting as null.
+    crossfeed: z.preprocess((value) => value ?? undefined, crossfeedSchema.optional()),
     ctlName: alsaName.optional(),
     controlsPath: z.string().min(1).optional(),
     internalPcmName: alsaName.optional(),
